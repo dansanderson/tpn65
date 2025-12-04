@@ -70,8 +70,9 @@ def parse_line(line):
     m = re.match(r'(\d+)?\s*([^\']*)?(\'.*)?', line)
     if m is None:
         return None
+    line_num = int(m.group(1)) if m.group(1) else None
     return Line(
-        line_number=int(m.group(1)),
+        line_number=line_num,
         statement=m.group(2),
         comment=m.group(3))
 
