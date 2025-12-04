@@ -9,9 +9,10 @@ Usage:
 '''
 
 from dataclasses import dataclass
+import fileinput
 import re
 import sys
-import fileinput
+from typing import Optional
 
 
 @dataclass
@@ -35,30 +36,40 @@ class IfDef:
 
 @dataclass
 class Line:
-    line_number: None | int
-    statement: None | str
-    comment: None | str
-    label: None | str
-    var_declare: None | VarDeclare
-    define: None | Define
-    if_def: None | IfDef
+    line_number: Optional[int] = None
+    statement: Optional[str] = None
+    comment: Optional[str] = None
+    label: Optional[str] = None
+    var_declare: Optional[VarDeclare] = None
+    define: Optional[Define] = None
+    if_def: Optional[IfDef] = None
 
     def __str__(self):
-        if self.statement is None and self.comment is None:
-            return ''
         parts = []
         if self.line_number is not None:
             parts.append(str(self.line_number))
-        if self.statement is not None:
-            parts.append(self.statement)
+
+        statement_str = (self.statement or '').strip()
+        if statement_str:
+            parts.append(statement_str)
+
         if self.comment is not None:
-            if self.statement is not None:
-                parts.append(':')
-            parts.append('rem ' + self.comment.lower())
+            comment_str = self.comment.lower()
+            if statement_str:
+                parts.append(f":rem {comment_str}")
+            else:
+                parts.append(f"rem {comment_str}")
+
         return ' '.join(parts)
 
 
 def parse_line(line):
+    line = line.rstrip()
+
+    m = re.match(r'\s*#output\b.*', line, re.IGNORECASE)
+    if m is not None:
+        return None
+
     # TODO: return None for #output "..."
     # TODO: support line labels
     # TODO: support var declarations, inits, array dims
@@ -67,14 +78,27 @@ def parse_line(line):
 
     # TODO: parse statements into components with var names, string literals
     # TODO: support string literals in statements that contain single quotes
-    m = re.match(r'(\d+)?\s*([^\']*)?(\'.*)?', line)
+
+    statement = line
+    comment = None
+
+    # TODO: this is wrong, but fine for now
+    if "'" in line:
+        parts = line.rsplit("'", 1)
+        statement = parts[0]
+        comment = parts[1]
+
+    m = re.match(r'(\d+)?\s*(.*)', statement)
     if m is None:
         return None
+
     line_num = int(m.group(1)) if m.group(1) else None
+    statement = m.group(2)
+
     return Line(
         line_number=line_num,
-        statement=m.group(2),
-        comment=m.group(3))
+        statement=statement,
+        comment=comment)
 
 
 class TpnGenerator:
@@ -101,6 +125,9 @@ class TpnGenerator:
             # TODO: replace defines with values; undefined symbol is error
             pass
 
+        if line.statement is not None and line.statement.strip() == "" and line.comment is None:
+            return ""
+
         if line.statement is not None or line.comment is not None:
             if line.line_number is None:
                 line.line_number = self.cur_line
@@ -115,7 +142,8 @@ def main():
     tpn_generator = TpnGenerator()
     for line in fileinput.input():
         processed_line = tpn_generator.process_line(line)
-        sys.stdout.write(processed_line)
+        if processed_line is not None:
+            sys.stdout.write(processed_line + '\n')
 
 
 if __name__ == "__main__":

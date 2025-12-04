@@ -9,7 +9,7 @@ class TestParseLine(unittest.TestCase):
         parsed = parse_line(line)
         self.assertEqual(parsed.line_number, 10)
         self.assertEqual(parsed.statement.strip(), "print 'hello'")
-        self.assertEqual(parsed.comment, "' a comment")
+        self.assertEqual(parsed.comment, " a comment")
 
     def test_statement_only(self):
         line = "  print 1"
@@ -23,7 +23,7 @@ class TestParseLine(unittest.TestCase):
         parsed = parse_line(line)
         self.assertIsNone(parsed.line_number)
         self.assertEqual(parsed.statement.strip(), "")
-        self.assertEqual(parsed.comment, "' a comment")
+        self.assertEqual(parsed.comment, " a comment")
 
     def test_line_number_and_statement(self):
         line = "20 goto 10"
@@ -37,14 +37,14 @@ class TestParseLine(unittest.TestCase):
         parsed = parse_line(line)
         self.assertEqual(parsed.line_number, 30)
         self.assertEqual(parsed.statement.strip(), "")
-        self.assertEqual(parsed.comment, "' comment")
+        self.assertEqual(parsed.comment, " comment")
 
     def test_statement_and_comment(self):
         line = "  end ' the end"
         parsed = parse_line(line)
         self.assertIsNone(parsed.line_number)
         self.assertEqual(parsed.statement.strip(), "end")
-        self.assertEqual(parsed.comment, "' the end")
+        self.assertEqual(parsed.comment, " the end")
 
     def test_empty_line(self):
         line = ""
@@ -57,8 +57,21 @@ class TestParseLine(unittest.TestCase):
         line = "   "
         parsed = parse_line(line)
         self.assertIsNone(parsed.line_number)
-        self.assertEqual(parsed.statement, "   ")
+        self.assertEqual(parsed.statement.strip(), "")
         self.assertIsNone(parsed.comment)
+
+    def test_output_directive(self):
+        line = "#output mega65.bas"
+        parsed = parse_line(line)
+        self.assertIsNone(parsed)
+
+        line = "  #output mega65.bas"
+        parsed = parse_line(line)
+        self.assertIsNone(parsed)
+
+        line = "#OUTPUT mega65.bas"
+        parsed = parse_line(line)
+        self.assertIsNone(parsed)
 
 
 class TestTpnGenerator(unittest.TestCase):
@@ -73,12 +86,12 @@ class TestTpnGenerator(unittest.TestCase):
 
     def test_process_comment(self):
         output = self.generator.process_line("' a comment")
-        self.assertEqual(output, "100 rem ' a comment")
+        self.assertEqual(output, "100 rem a comment")
         self.assertEqual(self.generator.cur_line, 110)
 
     def test_process_statement_and_comment(self):
         output = self.generator.process_line("a=1 ' set a")
-        self.assertEqual(output, "100 a=1 :rem ' set a")
+        self.assertEqual(output, "100 a=1 :rem set a")
         self.assertEqual(self.generator.cur_line, 110)
 
     def test_process_line_with_number(self):
