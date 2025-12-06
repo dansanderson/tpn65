@@ -96,10 +96,10 @@ python3 tpn.py debug_header.bas myprogram.bas | python3 tpn.py
 python3 tpn.py release_header.bas myprogram.bas | python3 tpn.py
 ```
 
-It could also be used for reusable libraries of labeled subroutines.
+It could also be used for reusable libraries of labeled subroutines. Note that programs are assembled in the order of the source files, so you probably want the main program to be first (or include a `goto start` header at the beginning). Labels can be forward references into the libraries.
 
 ```
-python3 tpn.py graphicslib.bas musiclib.bas myprogram.bas | python3 tpn.py
+python3 tpn.py myprogram.bas graphicslib.bas musiclib.bas | python3 tpn.py
 ```
 
 ## Future?
