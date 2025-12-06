@@ -39,7 +39,7 @@ A secondary goal of TPN is for the generated BASIC text to be readable by humans
 
 It is not a goal for TPN to support all Eleven source files, or track development of the Eleven project. I just wanted something roughly similar. It probably comes close, but it's only marginally useful to interoperate with Eleven.
 
-You can use TPN to make BASIC programs for other Commodore computers supported by `petcat`. Currently, TPN reserves all MEGA65 BASIC keywords, so they cannot be used as long variable names. It would take little effort to add a command-line option to select a keyword set for a different BASIC. Feel free to ask for or contribute that feature!
+You can use TPN to make BASIC programs for other Commodore computers supported by `petcat`. Currently, TPN reserves all MEGA65 BASIC keywords, so they cannot be used as long variable names.
 
 "TPN" stands for "Ten Point Nine," which isn't anything but I was in a hurry and didn't put much thought into it.
 
@@ -105,3 +105,5 @@ python3 tpn.py graphicslib.bas musiclib.bas myprogram.bas | python3 tpn.py
 ## Future?
 
 An `#import` statement would be more useful than the concatenation examples above.
+
+Add a command-line option to select the target BASIC dialect, so as to reserve the matching keyword set. (TPN already works with other BASIC dialects, such as C64 BASIC 2.0, if you don't mind the BASIC 65 keywords being reserved unnecessarily.)
