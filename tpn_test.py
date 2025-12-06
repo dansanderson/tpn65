@@ -5,52 +5,82 @@ from tpn import IfDef, Output
 
 class TestStatement(unittest.TestCase):
     def test_to_basic(self):
-        statement = Statement("print ""hello""")
+        statement = Statement("print \"hello\"")
         state = TpnGenerator()
-        self.assertEqual(statement.to_basic(state), "print ""hello""")
+        self.assertEqual(statement.to_basic(state), "print \"hello\"")
+
+    def test_find_symbols(self):
+        statement = Statement("a$ = b$")
+        self.assertEqual(statement.find_symbols(), [(0, 2), (5, 7)])
+
+    def test_find_symbols_with_quotes(self):
+        statement = Statement("print \"hello\"")
+        self.assertEqual(statement.find_symbols(), [])
+
+
+class TestStatementToBasic(unittest.TestCase):
+    def test_replace_var(self):
+        statement = Statement("a$ = b$")
+        state = TpnGenerator()
+        state.vars = {"a$": "a$", "b$": "b$"}
+        self.assertEqual(statement.to_basic(state), "a$ = b$")
+
+    def test_replace_define(self):
+        statement = Statement("a = FOO")
+        state = TpnGenerator()
+        state.vars = {"a": "a"}
+        state.var_shorts = {"a"}
+        state.defines = {"FOO": "123"}
+        self.assertEqual(statement.to_basic(state), "a = 123")
+
+    def test_replace_label(self):
+        statement = Statement("goto label")
+        state = TpnGenerator()
+        state.labels = {"label": 1000}
+        self.assertEqual(statement.to_basic(state), "goto 1000")
 
 
 class TestLine(unittest.TestCase):
     def test_parse_line_statement(self):
-        line = Line.parse_line("print ""hello""")
-        self.assertEqual(line.statement.full_text, "print ""hello""")
+        line = Line.parse_line("print \"hello\"")
+        self.assertEqual(line.statement.full_text, "print \"hello\"")
         self.assertIsNone(line.label)
         self.assertIsNone(line.line_number)
         self.assertIsNone(line.comment)
 
     def test_parse_line_label_statement(self):
-        line = Line.parse_line(".label print ""hello""")
+        line = Line.parse_line(".label print \"hello\"")
         self.assertEqual(line.label, "label")
-        self.assertEqual(line.statement.full_text, " print ""hello""")
+        self.assertEqual(line.statement.full_text, " print \"hello\"")
         self.assertIsNone(line.line_number)
         self.assertIsNone(line.comment)
 
     def test_parse_line_line_number_statement(self):
-        line = Line.parse_line("100 print ""hello""")
+        line = Line.parse_line("100 print \"hello\"")
         self.assertEqual(line.line_number, 100)
-        self.assertEqual(line.statement.full_text, " print ""hello""")
+        self.assertEqual(line.statement.full_text, " print \"hello\"")
         self.assertIsNone(line.label)
         self.assertIsNone(line.comment)
 
     def test_parse_line_label_line_number_statement(self):
-        line = Line.parse_line(".label 100 print ""hello""")
+        line = Line.parse_line(".label 100 print \"hello\"")
         self.assertEqual(line.label, "label")
         self.assertEqual(line.line_number, 100)
-        self.assertEqual(line.statement.full_text, " print ""hello""")
+        self.assertEqual(line.statement.full_text, " print \"hello\"")
         self.assertIsNone(line.comment)
 
     def test_parse_line_statement_comment(self):
-        line = Line.parse_line("print ""hello"" ' comment")
-        self.assertEqual(line.statement.full_text, "print ""hello"" ")
+        line = Line.parse_line("print \"hello\" ' comment")
+        self.assertEqual(line.statement.full_text, "print \"hello\" ")
         self.assertEqual(line.comment, " comment")
         self.assertIsNone(line.label)
         self.assertIsNone(line.line_number)
 
     def test_parse_line_label_line_number_statement_comment(self):
-        line = Line.parse_line(".label 100 print ""hello"" ' comment")
+        line = Line.parse_line(".label 100 print \"hello\" ' comment")
         self.assertEqual(line.label, "label")
         self.assertEqual(line.line_number, 100)
-        self.assertEqual(line.statement.full_text, " print ""hello"" ")
+        self.assertEqual(line.statement.full_text, " print \"hello\" ")
         self.assertEqual(line.comment, " comment")
 
     def test_parse_line_label_only(self):
@@ -69,20 +99,20 @@ class TestLine(unittest.TestCase):
 
     def test_handle(self):
         state = TpnGenerator()
-        line = Line(statement=Statement("print ""hello"""))
-        self.assertEqual(line.handle(state, True), "100 print ""hello""")
+        line = Line(statement=Statement("print \"hello\""))
+        self.assertEqual(line.handle(state, True), "100 print \"hello\"")
         self.assertEqual(state.cur_line, 110)
 
     def test_handle_with_line_number(self):
         state = TpnGenerator()
-        line = Line(line_number=200, statement=Statement("print ""hello"""))
-        self.assertEqual(line.handle(state, True), "200 print ""hello""")
+        line = Line(line_number=200, statement=Statement("print \"hello\""))
+        self.assertEqual(line.handle(state, True), "200 print \"hello\"")
         self.assertEqual(state.cur_line, 210)
 
     def test_handle_with_label(self):
         state = TpnGenerator()
-        line = Line(label="label", statement=Statement("print ""hello"""))
-        self.assertEqual(line.handle(state, True), "100 print ""hello""")
+        line = Line(label="label", statement=Statement("print \"hello\""))
+        self.assertEqual(line.handle(state, True), "100 print \"hello\"")
         self.assertEqual(state.labels["label"], 100)
         self.assertEqual(state.cur_line, 110)
 
@@ -221,11 +251,78 @@ class TestOutput(unittest.TestCase):
         self.assertIsNone(output.handle(state, False))
 
 
+class TestMakeVarShort(unittest.TestCase):
+    def test_simple(self):
+        generator = TpnGenerator()
+        self.assertEqual(generator.make_var_short("var"), "va")
+
+    def test_suffix(self):
+        generator = TpnGenerator()
+        self.assertEqual(generator.make_var_short("var$"), "va$")
+
+    def test_collision(self):
+        generator = TpnGenerator()
+        self.assertEqual(generator.make_var_short("var"), "va")
+        self.assertEqual(generator.make_var_short("vaz"), "vb")
+
+    def test_collision_suffix(self):
+        generator = TpnGenerator()
+        self.assertEqual(generator.make_var_short("var$"), "va$")
+        self.assertEqual(generator.make_var_short("vaz$"), "vb$")
+
+    def test_wrap(self):
+        generator = TpnGenerator()
+        generator.make_var_short("vz")
+        self.assertEqual(generator.make_var_short("vz"), "va")
+
+    def test_no_name_available(self):
+        generator = TpnGenerator()
+        for i in range(26):
+            generator.make_var_short("v" + chr(ord("a") + i))
+        with self.assertRaises(TpnError):
+            generator.make_var_short("vx")
+
+
 class TestTpnGenerator(unittest.TestCase):
     def test_smoke(self):
         generator = TpnGenerator()
-        generator.tokenize_line("print ""hello""")
-        self.assertEqual(generator.output_basic(), "100 print ""hello""")
+        generator.tokenize_line("print \"hello\"")
+        self.assertEqual(generator.output_basic(), "100 print \"hello\"")
+
+    def test_forward_label(self):
+        generator = TpnGenerator()
+        generator.tokenize_line("goto label")
+        generator.tokenize_line(".label")
+        self.assertEqual(generator.output_basic(), "100 goto 110\n110")
+
+    def test_duplicate_label(self):
+        generator = TpnGenerator()
+        generator.tokenize_line(".label")
+        generator.tokenize_line(".label")
+        with self.assertRaises(TpnError):
+            generator.output_basic()
+
+    def test_duplicate_var(self):
+        generator = TpnGenerator()
+        generator.tokenize_line("#declare var")
+        generator.tokenize_line("#declare var")
+        with self.assertRaises(TpnError):
+            generator.output_basic()
+
+    def test_undeclared_symbol(self):
+        generator = TpnGenerator()
+        generator.tokenize_line("print a$")
+        with self.assertRaises(TpnError):
+            generator.output_basic()
+
+    def test_undeclared_symbol_no_output(self):
+        generator = TpnGenerator()
+        generator.tokenize_line("#define FOO")
+        generator.tokenize_line("#ifdef FOO")
+        generator.tokenize_line("print a$")
+        generator.tokenize_line("#endif")
+        with self.assertRaises(TpnError):
+            generator.output_basic()
 
 
 if __name__ == "__main__":

@@ -156,12 +156,12 @@ class VarDeclare(Directive):
         if self.init_short is not None:
             return Line(
                 statement=Statement(
-                    f'{short_name}={self.init_short}')
+                    f'{self.name}={self.init_short}')
                 ).handle(state, last_pass)
         elif self.array_dim_short is not None:
             return Line(
                 statement=Statement(
-                    f'dim {short_name}({self.array_dim_short})')
+                    f'dim {self.name}({self.array_dim_short})')
                 ).handle(state, last_pass)
         return None
 
@@ -316,10 +316,31 @@ class Statement:
     full_text: str
 
     def find_symbols(self):
-        return [
+        '''Locates all symbols in the statement text.
+
+        A symbol is:
+        * One or more word characters followed by an optional $ or %
+        * Outside a pair of double-quotes, or before an unpaired double-quote
+        * Not in the BASIC65_KEYWORDS set when lowercased
+
+        Returns:
+            A list of (start, end) index pairs of symbols in the text.
+        '''
+        quote_pairs = [
             (m.start(), m.end())
-            for m in re.finditer(r'\w+[$%]', self.full_text)
+            for m in re.finditer(r'"[^"]*"', self.full_text)]
+        candidates = [
+            (m.start(), m.end())
+            for m in re.finditer(r'[a-zA-Z_]\w*[$%]?', self.full_text)
             if m.group(0).lower() not in BASIC65_KEYWORDS]
+        symbols = []
+        for c in candidates:
+            for q in quote_pairs:
+                if q[0] < c[0] < q[1]:
+                    break
+            else:
+                symbols.append(c)
+        return symbols
 
     def to_basic(self, state):
         '''Returns the generated BASIC line string.
@@ -452,10 +473,10 @@ class Line:
         state.cur_line += state.line_incr
 
         if last_pass:
-            return self.to_basic_string()
+            return self.to_basic_string(state)
         return None
 
-    def to_basic_string(self):
+    def to_basic_string(self, state):
         '''Returns the generated BASIC line string.
 
         This assumes the Line object properties are fully populated, such as by
@@ -465,7 +486,7 @@ class Line:
         if self.line_number is not None:
             parts.append(str(self.line_number))
 
-        statement_str = self.statement.to_basic(self)
+        statement_str = self.statement.to_basic(state)
         if statement_str:
             parts.append(statement_str)
 
@@ -548,20 +569,21 @@ class TpnGenerator:
         else:
             name = name[0:2]
 
-        orig_second = name[1]
-        while name + suffix in self.var_shorts:
-            if name[0] == 'z':
-                new_second = 'a'
+        short_name = name[:2]
+        if len(short_name) < 2:
+            short_name += 'a'
+        start_char = short_name[1]
+        while short_name + suffix in self.var_shorts:
+            if short_name[1] == 'z':
+                short_name = short_name[0] + 'a'
             else:
-                new_second = chr(ord(orig_second) + 1)
-            if new_second == orig_second:
+                short_name = short_name[0] + chr(ord(short_name[1]) + 1)
+            if short_name[1] == start_char:
                 raise TpnError(
                     'Could not find a short variable name for ' +
                     orig_name)
-            name = name[0] + chr(ord(name[1]) + 1)
-
-        self.var_shorts.add(name + suffix)
-        return name + suffix
+        self.var_shorts.add(short_name + suffix)
+        return short_name + suffix
 
     def tokenize_line(self, line_str):
         '''Tokenizes a line of input source, and stores it in the state.
