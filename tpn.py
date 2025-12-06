@@ -14,6 +14,44 @@ import re
 from typing import Optional
 
 
+BASIC65_KEYWORDS = {
+    'abs', 'and', 'append', 'asc', 'atn', 'auto',
+    'background', 'backup', 'bank', 'begin', 'bend', 'bit',
+    'bload', 'boot', 'border', 'box', 'bsave', 'bump',
+    'bverify', 'catalog', 'change', 'char', 'chdir', 'circle',
+    'close', 'clr', 'cmd', 'collect', 'collision', 'color',
+    'concat', 'cont', 'copy', 'cos', 'cursor', 'cut',
+    'data', 'dclear', 'dclose', 'dec', 'decbin', 'def',
+    'delete', 'dim', 'dir', 'disk', 'dload', 'dma',
+    'dmode', 'do', 'dopen', 'dot', 'dpat', 'dsave',
+    'dverify', 'ectory', 'edit', 'edma', 'ellipse', 'else',
+    'end', 'envelope', 'erase', 'exit', 'exp', 'fast',
+    'fgosub', 'fgoto', 'filter', 'find', 'fn', 'font',
+    'for', 'foreground', 'format', 'fre', 'freezer', 'gcopy',
+    'get', 'go', 'gosub', 'goto', 'graphic', 'hasbit',
+    'header', 'help', 'highlight', 'if', 'import', 'info',
+    'input', 'instr', 'int', 'joy', 'key', 'len',
+    'let', 'line', 'list', 'load', 'loadiff', 'lock',
+    'log', 'log10', 'log2', 'loop', 'lpen', 'mem',
+    'merge', 'mkdir', 'mod', 'monitor', 'mount', 'mouse',
+    'movspr', 'new', 'next', 'not', 'off', 'on',
+    'open', 'or', 'paint', 'palette', 'paste', 'peek',
+    'pen', 'pixel', 'play', 'pointer', 'poke', 'polygon',
+    'pos', 'pot', 'print', 'rcolor', 'rcursor', 'rdisk',
+    'read', 'record', 'rem', 'rename', 'renumber', 'restore',
+    'resume', 'return', 'rgraphic', 'rmouse', 'rnd', 'rpalette',
+    'rpen', 'rplay', 'rreg', 'rspcolor', 'rspeed', 'rsppos',
+    'rsprite', 'rsprsys', 'run', 'rwindow', 'save', 'saveiff',
+    'scnclr', 'scratch', 'screen', 'set', 'sgn', 'sin',
+    'sleep', 'sound', 'speed', 'sprcolor', 'sprite', 'sprsav',
+    'sqr', 'step', 'stop', 'sys', 'tan', 'tempo',
+    'then', 'to', 'trap', 'troff', 'tron', 'turbo',
+    'type', 'unlock', 'until', 'using', 'usr', 'val',
+    'verify', 'viewport', 'vol', 'vsync', 'wait', 'while',
+    'window', 'wpeek', 'wpoke', 'xor'
+}
+
+
 class TpnError(Exception):
     '''There is an error in the user input.'''
     pass
@@ -277,6 +315,12 @@ class Statement:
     '''A line of BASIC statements.'''
     full_text: str
 
+    def find_symbols(self):
+        return [
+            (m.start(), m.end())
+            for m in re.finditer(r'\w+[$%]', self.full_text)
+            if m.group(0).lower() not in BASIC65_KEYWORDS]
+
     def to_basic(self, state):
         '''Returns the generated BASIC line string.
 
@@ -286,11 +330,26 @@ class Statement:
         Returns:
             The generated BASIC line string.
         '''
-        # TODO: replace vars with short vars
-        # TODO: replace defines with values
-        # TODO: unrecognized symbol is error (?)
-        # TODO: replace labels with line numbers
-        return self.full_text
+        symbol_positions = self.find_symbols()
+        parts = []
+        last_end = 0
+        for start, end in symbol_positions:
+            sym = self.full_text[start:end]
+            replacement = None
+            if sym in state.vars:
+                replacement = state.vars[sym]
+            elif sym in state.defines:
+                replacement = state.defines[sym]
+            elif sym in state.labels:
+                replacement = str(state.labels[sym])
+            else:
+                raise TpnError(f'Undeclared symbol: {sym}')
+            parts.append(self.full_text[last_end:start])
+            parts.append(replacement)
+            last_end = end
+
+        parts.append(self.full_text[last_end:])
+        return ''.join(parts)
 
 
 @dataclass
