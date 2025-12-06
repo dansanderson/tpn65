@@ -149,10 +149,11 @@ class VarDeclare(Directive):
         Raises:
             TpnError: Evaluation error, such as a duplicate symbol declaration.
         '''
-        if not last_pass and self.name in state.vars:
-            raise TpnError(f'Duplicate variable declaration: {self.name}')
-        short_name = state.make_var_short(self.name)
-        state.vars[self.name] = short_name
+        if not last_pass:
+            if self.name in state.vars:
+                raise TpnError(f'Duplicate variable declaration: {self.name}')
+            short_name = state.make_var_short(self.name)
+            state.vars[self.name] = short_name
         if self.init_short is not None:
             return Line(
                 statement=Statement(
@@ -562,14 +563,27 @@ class TpnGenerator:
         else:
             suffix = ''
 
-        if len(name) == 1:
-            if name + suffix not in self.var_shorts:
-                self.var_shorts.add(name + suffix)
-                return name + suffix
-            short_name = name + 'a'
-        else:
-            short_name = name[0:2]
+        # Assign a BASIC-compatible variable name. If the first two characters
+        # of the original name are available, use them for the short name.
+        short_name = name[0:2]
+        if short_name + suffix not in self.var_shorts:
+            self.var_shorts.add(short_name + suffix)
+            return short_name + suffix
 
+        # Short name in use. Search for an alternate.
+        # One-char names start with an 'a' as the second letter.
+        # Two-char names start with their first two characters.
+        # If the original second character is a number, start at 'a'.
+        if len(name) == 1:
+            short_name = name + 'a'
+        if short_name[1] in '0123456789':
+            short_name = short_name[0] + 'a'
+
+        # Search for replacements by iterating the second letter. This is
+        # limited to 25 possible alternate short names per starting letter,
+        # per type. (This could be extended to include numbers, if needed.)
+        # This doesn't use a separate namespace for arrays as BASIC does, so
+        # that's another opportunity to expand.
         start_char = short_name[1]
         while short_name + suffix in self.var_shorts:
             if short_name[1] == 'z':
