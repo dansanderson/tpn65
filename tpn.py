@@ -21,7 +21,8 @@ class TpnError(Exception):
 
 class Directive:
     '''Base class for directive tokens.'''
-    def _parse_line(self, line):
+    @staticmethod
+    def _parse_line(line):
         '''Attempts to parse a source line as a directive.
 
         Args:
@@ -48,11 +49,11 @@ class VarDeclare(Directive):
         #declare varName(<dim>)
     '''
     name: str
-    init_short: None | str
-    array_dim_short: None | str
+    init_short: None | str = None
+    array_dim_short: None | str = None
 
     @classmethod
-    def parse_line(self, line):
+    def parse_line(cls, line):
         '''Parses a line as a variable declaration.
 
         Args:
@@ -65,7 +66,7 @@ class VarDeclare(Directive):
         Raises:
             TpnError: Syntax error for a #declare.
         '''
-        directive, rest = self._parse_line(line)
+        directive, rest = cls._parse_line(line)
         if directive is None or directive != 'declare':
             return None
 
@@ -138,7 +139,7 @@ class Define(Directive):
     value: None | str
 
     @classmethod
-    def parse_line(self, line):
+    def parse_line(cls, line):
         '''Parses a line as a constant definition.
 
         Args:
@@ -150,7 +151,7 @@ class Define(Directive):
         Raises:
             TpnError: Syntax error for a #define.
         '''
-        directive, rest = self._parse_line(line)
+        directive, rest = cls._parse_line(line)
         if directive is None or directive != 'define':
             return None
 
@@ -196,7 +197,7 @@ class IfDef(Directive):
     is_endif: bool
 
     @classmethod
-    def parse_line(self, line):
+    def parse_line(cls, line):
         '''Parses a line as an ifdef or endif directive.
 
         Args:
@@ -208,7 +209,7 @@ class IfDef(Directive):
         Raises:
             TpnError: Syntax error for an #ifdef or #endif.
         '''
-        directive, rest = self._parse_line(line)
+        directive, rest = cls._parse_line(line)
         if (directive is None or
                 (directive != 'ifdef' and directive != 'endif')):
             return None
@@ -248,7 +249,7 @@ class Output(Directive):
     Output directives are ignored, so no syntax checking is done.
     '''
     @classmethod
-    def parse_line(self, line):
+    def parse_line(cls, line):
         '''Parses a line as an output directive.
 
         Args:
@@ -257,7 +258,7 @@ class Output(Directive):
         Returns:
             An Output object, or None if the line is not an output directive.
         '''
-        directive, rest = self._parse_line(line)
+        directive, rest = cls._parse_line(line)
         if directive is None or directive != 'output':
             return None
         return Output()
@@ -320,7 +321,7 @@ class Line:
     label: Optional[str] = None
 
     @classmethod
-    def parse_line(self, line):
+    def parse_line(cls, line):
         '''Parses a line as a source line.
 
         Args:
