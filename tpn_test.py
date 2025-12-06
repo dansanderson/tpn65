@@ -273,13 +273,13 @@ class TestIfDef(unittest.TestCase):
         state.defines["SYMBOL"] = None
         if_def = IfDef(def_name="SYMBOL", is_endif=False)
         if_def.handle(state, False)
-        self.assertTrue(state.in_false_ifdef)
+        self.assertFalse(state.in_false_ifdef)
 
     def test_handle_ifdef_undefined(self):
         state = TpnGenerator()
         if_def = IfDef(def_name="SYMBOL", is_endif=False)
         if_def.handle(state, False)
-        self.assertFalse(state.in_false_ifdef)
+        self.assertTrue(state.in_false_ifdef)
 
     def test_handle_endif(self):
         state = TpnGenerator()

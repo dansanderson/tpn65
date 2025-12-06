@@ -101,3 +101,7 @@ It could also be used for reusable libraries of labeled subroutines.
 ```
 python3 tpn.py graphicslib.bas musiclib.bas myprogram.bas | python3 tpn.py
 ```
+
+## Future?
+
+An `#import` statement would be more useful than the concatenation examples above.

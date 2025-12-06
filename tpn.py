@@ -274,7 +274,7 @@ class IfDef(Directive):
         '''
         if self.is_endif:
             state.in_false_ifdef = False
-        elif self.def_name is None or self.def_name in state.defines:
+        elif self.def_name is None or self.def_name not in state.defines:
             state.in_false_ifdef = True
         return None
 
