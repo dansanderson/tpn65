@@ -1,6 +1,8 @@
+import io
 import unittest
+from unittest.mock import patch
 from tpn import Statement, TpnGenerator, Line, VarDeclare, TpnError, Define
-from tpn import IfDef, Output
+from tpn import IfDef, Output, main
 
 
 class TestStatement(unittest.TestCase):
@@ -116,6 +118,29 @@ class TestLine(unittest.TestCase):
         self.assertEqual(state.labels["label"], 100)
         self.assertEqual(state.cur_line, 110)
 
+    def test_line_with_label_only_no_output(self):
+        state = TpnGenerator()
+        line = Line.parse_line(".label")
+        self.assertIsNone(line.handle(state, False))
+        self.assertIsNone(line.handle(state, True))
+
+    def test_comment_with_statement(self):
+        state = TpnGenerator()
+        line = Line.parse_line("print 1 ' comment")
+        self.assertEqual(
+            line.handle(state, True),
+            "100 print 1  :rem  comment")
+
+    def test_comment_without_statement(self):
+        state = TpnGenerator()
+        line = Line.parse_line("' comment")
+        self.assertEqual(line.handle(state, True), "100 rem  comment")
+
+    def test_parse_empty_string(self):
+        state = TpnGenerator()
+        line = Line.parse_line("")
+        self.assertIsNone(line.handle(state, True))
+
 
 class TestVarDeclare(unittest.TestCase):
     def test_parse_line(self):
@@ -188,6 +213,10 @@ class TestDefine(unittest.TestCase):
         with self.assertRaises(TpnError):
             Define.parse_line("#define")
 
+    def test_parse_line_stuff_after_symbol(self):
+        with self.assertRaises(TpnError):
+            Define.parse_line("#define SYMBOL foo")
+
     def test_parse_line_empty_value(self):
         define = Define.parse_line("#define SYMBOL = ")
         self.assertEqual(define.name, "SYMBOL")
@@ -198,6 +227,22 @@ class TestDefine(unittest.TestCase):
         define = Define(name="SYMBOL", value="123")
         define.handle(state, False)
         self.assertEqual(state.defines["SYMBOL"], "123")
+
+    def test_non_duplicate_define(self):
+        state = TpnGenerator()
+        define1 = Define(name="SYMBOL1", value="123")
+        define2 = Define(name="SYMBOL2", value="456")
+        define1.handle(state, False)
+        define2.handle(state, False)
+        self.assertEqual(len(state.defines), 2)
+
+    def test_duplicate_define(self):
+        state = TpnGenerator()
+        define1 = Define(name="SYMBOL", value="123")
+        define2 = Define(name="SYMBOL", value="456")
+        define1.handle(state, False)
+        with self.assertRaises(TpnError):
+            define2.handle(state, False)
 
 
 class TestIfDef(unittest.TestCase):
@@ -238,6 +283,12 @@ class TestIfDef(unittest.TestCase):
         if_def = IfDef(def_name=None, is_endif=True)
         if_def.handle(state, False)
         self.assertFalse(state.in_false_ifdef)
+
+    def test_ifdef_no_symbol(self):
+        state = TpnGenerator()
+        if_def = IfDef(def_name=None, is_endif=False)
+        if_def.handle(state, False)
+        self.assertTrue(state.in_false_ifdef)
 
 
 class TestOutput(unittest.TestCase):
@@ -282,6 +333,33 @@ class TestMakeVarShort(unittest.TestCase):
         with self.assertRaises(TpnError):
             generator.make_var_short("vx")
 
+    def test_make_var_short_single_char(self):
+        generator = TpnGenerator()
+        self.assertEqual(generator.make_var_short("a"), "a")
+        self.assertEqual(generator.make_var_short("b"), "b")
+
+    def test_make_var_short_single_char_collision(self):
+        generator = TpnGenerator()
+        generator.make_var_short("a")
+        self.assertEqual(generator.make_var_short("a"), "aa")
+
+    def test_make_var_short_none(self):
+        generator = TpnGenerator()
+        with self.assertRaises(TpnError):
+            generator.make_var_short(None)
+
+    def test_make_var_short_empty(self):
+        generator = TpnGenerator()
+        with self.assertRaises(TpnError):
+            generator.make_var_short("")
+
+    def test_make_var_short_symbol_only(self):
+        generator = TpnGenerator()
+        with self.assertRaises(TpnError):
+            generator.make_var_short("$")
+        with self.assertRaises(TpnError):
+            generator.make_var_short("%")
+
 
 class TestTpnGenerator(unittest.TestCase):
     def test_smoke(self):
@@ -293,7 +371,7 @@ class TestTpnGenerator(unittest.TestCase):
         generator = TpnGenerator()
         generator.tokenize_line("goto label")
         generator.tokenize_line(".label")
-        self.assertEqual(generator.output_basic(), "100 goto 110\n110")
+        self.assertEqual(generator.output_basic(), "100 goto 110")
 
     def test_duplicate_label(self):
         generator = TpnGenerator()
@@ -323,6 +401,20 @@ class TestTpnGenerator(unittest.TestCase):
         generator.tokenize_line("#endif")
         with self.assertRaises(TpnError):
             generator.output_basic()
+
+    def test_empty_line(self):
+        generator = TpnGenerator()
+        self.assertEqual(len(generator.tokens), 0)
+        generator.tokenize_line("")
+        self.assertEqual(len(generator.tokens), 0)
+
+
+class TestMain(unittest.TestCase):
+    @patch('fileinput.input', return_value=['print "hello"'])
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_main(self, mock_stdout, mock_stdin):
+        main()
+        self.assertEqual(mock_stdout.getvalue(), '100 print "hello"\n')
 
 
 if __name__ == "__main__":

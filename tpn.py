@@ -467,7 +467,7 @@ class Line:
                 raise TpnError(f'Duplicate label: {self.label}')
             state.labels[self.label] = state.cur_line
 
-        if self.statement is None and self.comment is None:
+        if self.statement.full_text.strip() == '' and self.comment is None:
             return None
         self.line_number = state.cur_line
         state.cur_line += state.line_incr
@@ -564,14 +564,12 @@ class TpnGenerator:
 
         if len(name) == 1:
             if name + suffix not in self.var_shorts:
+                self.var_shorts.add(name + suffix)
                 return name + suffix
-            name = name + 'a'
+            short_name = name + 'a'
         else:
-            name = name[0:2]
+            short_name = name[0:2]
 
-        short_name = name[:2]
-        if len(short_name) < 2:
-            short_name += 'a'
         start_char = short_name[1]
         while short_name + suffix in self.var_shorts:
             if short_name[1] == 'z':
@@ -596,7 +594,7 @@ class TpnGenerator:
         '''
         line_str = line_str.strip()
         if line_str == '':
-            return None
+            return
 
         token = None
         for cls in (VarDeclare, Define, IfDef, Output, Line):
