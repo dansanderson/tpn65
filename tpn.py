@@ -273,14 +273,23 @@ class Output(Directive):
 
 @dataclass
 class Statement:
+    '''A line of BASIC statements.'''
     full_text: str
 
     def to_basic(self, state):
+        '''Returns the generated BASIC line string.
+
+        Args:
+            state: The TpnGenerator state.
+
+        Returns:
+            The generated BASIC line string.
+        '''
         # TODO: replace vars with short vars
         # TODO: replace defines with values
         # TODO: unrecognized symbol is error (?)
         # TODO: replace labels with line numbers
-        pass
+        return self.full_text
 
 
 @dataclass
