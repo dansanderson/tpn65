@@ -1,4 +1,4 @@
-# TPN: A cheap BASIC cross-transpiler for the MEGA65
+# TPN: A simple BASIC cross-transpiler for the MEGA65
 
 In 2021, MEGA65 developer ubik created the Eleven on-device integrated programming environment for the MEGA65. Eleven is a *transpiler* for BASIC 10, the version of BASIC included with the Commodore 65. As a programming language, it is similar to BASIC, with only a few but important ergonomic features: long variable names, labels, optional line numbers, and a low-profile comment syntax. The Eleven IDE included a featureful text editor, and a build workflow that output standalone BASIC 10 programs that could be distributed and run on any MEGA65. From 2022 to present day, MEGA65 team member Gurce has been maintaining Eleven, adding features, fixing bugs, and improving performance. See [the MEGA65 Eleven Github repo](https://github.com/MEGA65/eleven) for the latest code.
 
