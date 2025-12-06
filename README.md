@@ -1,6 +1,6 @@
 # TPN: A simple BASIC cross-transpiler for the MEGA65
 
-In 2021, MEGA65 developer ubik created the Eleven on-device integrated programming environment for the MEGA65. Eleven is a *transpiler* for BASIC 10, the version of BASIC included with the Commodore 65. As a programming language, it is similar to BASIC, with only a few but important ergonomic features: long variable names, labels, optional line numbers, and a low-profile comment syntax. The Eleven IDE included a featureful text editor, and a build workflow that output standalone BASIC 10 programs that could be distributed and run on any MEGA65. From 2022 to present day, MEGA65 team member Gurce has been maintaining Eleven, adding features, fixing bugs, and improving performance. See [the MEGA65 Eleven Github repo](https://github.com/MEGA65/eleven) for the latest code.
+In 2021, MEGA65 developer ubik created the Eleven on-device integrated programming environment for the MEGA65. Eleven is a *transpiler* for BASIC 10, the version of BASIC included with the Commodore 65. As a programming language, it is similar to BASIC, with only a few but important ergonomic features: long variable names, labels, optional line numbers, and a low-profile comment syntax. The Eleven IDE includes a featureful text editor, and a build workflow that output standalone BASIC 10 programs that could be distributed and run on any MEGA65. From 2022 to present day, MEGA65 team member Gurce has been maintaining Eleven, adding features, fixing bugs, and improving performance. See [the MEGA65 Eleven Github repo](https://github.com/MEGA65/eleven) for the latest code.
 
 ```
 ' a simple Eleven program
@@ -31,13 +31,13 @@ In 2021, MEGA65 developer ubik created the Eleven on-device integrated programmi
     return
 ```
 
-TPN is a cross-transpiler with syntax similar to Eleven. It does not run directly on the MEGA65, one of Eleven's most important features. Instead, it's just a way to generate BASIC 65 PRG files on a PC for use on a MEGA65.
+TPN is a cross-transpiler with syntax similar to Eleven. It does not run directly on the MEGA65 (one of Eleven's most important features). Instead, it's just a way to generate BASIC 65 PRG files on a PC for use on a MEGA65, with similar ergonomic niceties.
 
-The primary goal of TPN is to allow cross-development of Commodore BASIC programs without the syntax hindrances of CBM BASIC that are required by the transpiler `petcat`, especially line numbers. TPN takes a source file in an Eleven-like syntax and converts it to BASIC 65 text. You can then feed this text to `petcat` to produce a PRG file. That's it.
+The primary goal of TPN is to allow cross-development of Commodore BASIC programs without the syntax hindrances of CBM BASIC that are required by the transpiler [petcat](https://files.mega65.org?id=9561505c-a36d-4d3e-b158-d52a718e818e) (from the VICE emulator project), especially line numbers. TPN takes a source file in an Eleven-like syntax and converts it to BASIC 65 text. You can then feed this text to `petcat` to produce a PRG file. That's it.
 
 A secondary goal of TPN is for the generated BASIC text to be readable by humans directly on the MEGA65, as a code sample. TPN tries to pick sensible line numbers and two-character variable names, and does not crunch interior space.
 
-It is not a goal for TPN to support all Eleven source files, or track development of the Eleven project. I just wanted something roughly similar. It probably comes close, but it's only marginally useful to interoperate with Eleven.
+It is not a goal for TPN to support all Eleven source files, or track development of the Eleven project. I just wanted something roughly similar. It probably comes close, but it's only marginally useful to interoperate with Eleven. It is also not a goal to match Eleven's transpilation output exactly, though hopefully the output is functionally equivalent.
 
 You can use TPN to make BASIC programs for other Commodore computers supported by `petcat`. Currently, TPN reserves all MEGA65 BASIC keywords, so they cannot be used as long variable names.
 
@@ -107,3 +107,5 @@ python3 tpn.py graphicslib.bas musiclib.bas myprogram.bas | python3 tpn.py
 An `#import` statement would be more useful than the concatenation examples above.
 
 Add a command-line option to select the target BASIC dialect, so as to reserve the matching keyword set. (TPN already works with other BASIC dialects, such as C64 BASIC 2.0, if you don't mind the BASIC 65 keywords being reserved unnecessarily.)
+
+Nicer error formatting. Line numbers in error messages.
