@@ -59,7 +59,8 @@ class VarDeclare(Directive):
             line: The line string.
 
         Returns:
-            A VarDeclare object, or None if the line is not a variable declaration.
+            A VarDeclare object, or None if the line is not a variable
+            declaration.
 
         Raises:
             TpnError: Syntax error for a #declare.
@@ -115,11 +116,13 @@ class VarDeclare(Directive):
         state.vars[self.name] = short_name
         if self.init_short is not None:
             return Line(
-                statement=f'{short_name}={self.init_short}'
+                statement=Statement(
+                    f'{short_name}={self.init_short}')
                 ).handle(state, last_pass)
         elif self.array_dim_short is not None:
             return Line(
-                statement=f'dim {short_name}({self.array_dim_short})'
+                statement=Statement(
+                    f'dim {short_name}({self.array_dim_short})')
                 ).handle(state, last_pass)
         return None
 
@@ -269,6 +272,18 @@ class Output(Directive):
 
 
 @dataclass
+class Statement:
+    full_text: str
+
+    def to_basic(self, state):
+        # TODO: replace vars with short vars
+        # TODO: replace defines with values
+        # TODO: unrecognized symbol is error (?)
+        # TODO: replace labels with line numbers
+        pass
+
+
+@dataclass
 class Line:
     '''A source line.
 
@@ -291,7 +306,7 @@ class Line:
         print "that's all, folks"  ' this is a comment. it's great.
     '''
     line_number: Optional[int] = None
-    statement: Optional[str] = None
+    statement: Optional[Statement] = None
     comment: Optional[str] = None
     label: Optional[str] = None
 
@@ -308,34 +323,34 @@ class Line:
         Raises:
             TpnError: Syntax error for a source line.
         '''
-        # Line labels
-        statement_comment = line
+        line_num = None
         label = None
-        m = re.match(r'\s*\.(\w+)(.*)', line)
-        if m is not None:
-            label = m.group(1)
-            statement_comment = m.group(2).strip()
-
-        # TODO: parse statements into components with var names, string literals
-        # TODO: support string literals in statements that contain single quotes
-
-        statement = line
+        statement = None
         comment = None
 
-        # TODO: this is wrong, but fine for now
-        if "'" in line:
-            parts = line.rsplit("'", 1)
-            statement = parts[0]
-            comment = parts[1]
-            if comment.startswith(' '):
-                comment = comment[1:]
+        m = re.match(r'\s*(\.\w+)(.*)', line)
+        if m is not None:
+            label = m.group(1)[1:]
+            line = m.group(2)
 
-        m = re.match(r'(\d+)?\s*(.*)', statement)
-        if m is None:
-            return None
+        m = re.match(r'\s*(\d+)(.*)', line)
+        if m is not None:
+            line_num = int(m.group(1))
+            line = m.group(2)
 
-        line_num = int(m.group(1)) if m.group(1) else None
-        statement = m.group(2)
+        i = 0
+        in_string = False
+        while i < len(line):
+            if line[i] == '"':
+                in_string = not in_string
+            elif line[i] == "'" and not in_string:
+                break
+            i += 1
+        statement = Statement(line[:i])
+        line = line[i:]
+
+        if line.startswith("'"):
+            comment = line[1:]
 
         return Line(
             line_number=line_num,
@@ -352,33 +367,24 @@ class Line:
 
         Returns:
             The generated BASIC line string, or None if this Line doesn't
-            represent an output line.
+            represent an output line or last_pass is False.
         '''
-        if self.statement is not None and last_pass:
-            # TODO: replace vars with short vars
-            # TODO: replace defines with values
-            # TODO: unrecognized symbol is error (?)
-            # TODO: replace labels with line numbers
-            pass
-
-        if (self.statement is not None and
-                self.statement.strip() == "" and
-                self.comment is None):
-            return None
-
-        if self.statement is not None or self.comment is not None:
-            if self.line_number is None:
-                self.line_number = state.cur_line
-                state.cur_line += state.line_incr
-            else:
-                state.cur_line = self.line_number
+        if self.line_number is not None:
+            state.cur_line = self.line_number
 
         if self.label is not None:
             if not last_pass and self.label in state.labels:
                 raise TpnError(f'Duplicate label: {self.label}')
             state.labels[self.label] = state.cur_line
 
-        return self.to_basic_string()
+        if self.statement is None and self.comment is None:
+            return None
+        self.line_number = state.cur_line
+        state.cur_line += state.line_incr
+
+        if last_pass:
+            return self.to_basic_string()
+        return None
 
     def to_basic_string(self):
         '''Returns the generated BASIC line string.
@@ -390,7 +396,7 @@ class Line:
         if self.line_number is not None:
             parts.append(str(self.line_number))
 
-        statement_str = (self.statement or '').strip()
+        statement_str = self.statement.to_basic(self)
         if statement_str:
             parts.append(statement_str)
 
@@ -446,7 +452,9 @@ class TpnGenerator:
             else:
                 new_second = chr(ord(orig_second) + 1)
             if new_second == orig_second:
-                raise TpnError('Could not find a short variable name for ' + orig_name)
+                raise TpnError(
+                    'Could not find a short variable name for ' +
+                    orig_name)
             name = name[0] + chr(ord(name[1]) + 1)
 
         self.var_shorts.add(name + suffix)
