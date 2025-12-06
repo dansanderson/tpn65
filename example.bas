@@ -5,9 +5,9 @@
 #declare units$
 
 .start
-    input "how many degrees?";degrees$
+    input "how many degrees";degrees$
     degrees = val(degrees$)
-    input "units (c/f)?";units$
+    input "units (c/f)";units$
     if units$ <> "c" and units$ <> "f" then .start
     gosub convert
     print "result: ";degrees;" ";units$

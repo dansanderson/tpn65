@@ -10,9 +10,9 @@ In 2021, MEGA65 developer ubik created the Eleven on-device integrated programmi
 #declare units$
 
 .start
-    input "how many degrees?";degrees$
+    input "how many degrees";degrees$
     degrees = val(degrees$)
-    input "units (c/f)?";units$
+    input "units (c/f)";units$
     if units$ <> "c" and units$ <> "f" then .start
     gosub convert
     print "result: ";degrees;" ";units$

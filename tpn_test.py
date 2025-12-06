@@ -129,12 +129,12 @@ class TestLine(unittest.TestCase):
         line = Line.parse_line("print 1 ' comment")
         self.assertEqual(
             line.handle(state, True),
-            "100 print 1  :rem  comment")
+            "100 print 1  :rem comment")
 
     def test_comment_without_statement(self):
         state = TpnGenerator()
         line = Line.parse_line("' comment")
-        self.assertEqual(line.handle(state, True), "100 rem  comment")
+        self.assertEqual(line.handle(state, True), "100 rem comment")
 
     def test_parse_empty_string(self):
         state = TpnGenerator()

@@ -493,10 +493,14 @@ class Line:
 
         if self.comment is not None:
             comment_str = self.comment.lower()
+            if not comment_str.startswith(' '):
+                # (Preserve intentional spaces, but don't conjoin "rem" with
+                # comment text.)
+                comment_str = ' ' + comment_str
             if statement_str:
-                parts.append(f":rem {comment_str}")
+                parts.append(f":rem{comment_str}")
             else:
-                parts.append(f"rem {comment_str}")
+                parts.append(f"rem{comment_str}")
 
         return ' '.join(parts)
 
