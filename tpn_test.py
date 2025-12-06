@@ -126,21 +126,21 @@ class TestVarDeclare(unittest.TestCase):
         state = TpnGenerator()
         var_declare = VarDeclare(name="varName")
         var_declare.handle(state, False)
-        self.assertEqual(state.vars["varName"], "varname")
+        self.assertEqual(state.vars["varName"], "va")
 
     def test_handle_with_initializer(self):
         state = TpnGenerator()
         var_declare = VarDeclare(name="varName", init_short="123")
         line = var_declare.handle(state, True)
-        self.assertEqual(state.vars["varName"], "varname")
-        self.assertEqual(line, "100 varname=123")
+        self.assertEqual(state.vars["varName"], "va")
+        self.assertEqual(line, "100 va=123")
 
     def test_handle_with_array_dim(self):
         state = TpnGenerator()
         var_declare = VarDeclare(name="varName", array_dim_short="10")
         line = var_declare.handle(state, True)
-        self.assertEqual(state.vars["varName"], "varname")
-        self.assertEqual(line, "100 dim varname(10)")
+        self.assertEqual(state.vars["varName"], "va")
+        self.assertEqual(line, "100 dim va(10)")
 
 
 class TestDefine(unittest.TestCase):

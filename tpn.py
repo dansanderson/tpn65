@@ -480,6 +480,14 @@ class Line:
 
 
 class TpnGenerator:
+    '''Stateful BASIC converter.
+
+    To use, follow these steps:
+
+    1. Call generator.tokenize_line(line_str) on each input source line in
+       order.
+    2. Call generator.output_basic(). This returns the converted BASIC output.
+    '''
     def __init__(self):
         self.defines = dict()
         self.vars = dict()
@@ -489,12 +497,36 @@ class TpnGenerator:
         self.reset_state()
 
     def reset_state(self):
+        '''Resets the state for the next pass.'''
         self.cur_line = 100
         self.line_incr = 10
         self.label_line_align = 100
         self.in_false_ifdef = False
 
     def make_var_short(self, orig_name):
+        '''Create and register a short name for a declared variable.
+
+        orig_name can be a name of any length, followed by an optional $ or %.
+        orig_name always starts with a letter. The short name is one or two
+        lowercase letters, followed by the optional $ or % if it was provided
+        on orig_name.
+
+        All short names are unique across the entire program. make_var_short
+        attempts to use the first two letters of orig_name, or just orig_name
+        if it has one letter. If such a short name has already been
+        registered, the second letter is incremented, wrapping around from 'z'
+        to 'a', until an unused option is found. If all 26 letter options are
+        found, it raises a TpnError.
+
+        Args:
+            orig_name: The original name of the variable.
+
+        Returns:
+            The short variable name.
+
+        Raises:
+            TpnError: Could not find a short variable name for the variable.
+        '''
         if orig_name is None:
             raise TpnError('Variable name must not be None')
         if len(orig_name) == 0:
@@ -513,6 +545,8 @@ class TpnGenerator:
             if name + suffix not in self.var_shorts:
                 return name + suffix
             name = name + 'a'
+        else:
+            name = name[0:2]
 
         orig_second = name[1]
         while name + suffix in self.var_shorts:
@@ -530,6 +564,14 @@ class TpnGenerator:
         return name + suffix
 
     def tokenize_line(self, line_str):
+        '''Tokenizes a line of input source, and stores it in the state.
+
+        Args:
+            line_str: The line string.
+
+        Raises:
+            TpnError: Syntax error for a source line.
+        '''
         line_str = line_str.strip()
         if line_str == '':
             return None
@@ -544,6 +586,17 @@ class TpnGenerator:
             self.tokens.append(token)
 
     def output_basic(self):
+        '''Returns the generated BASIC output.
+
+        The routine makes two passes over the registered token list to resolve
+        forward references to labels.
+
+        Returns:
+            The generated BASIC output.
+
+        Raises:
+            TpnError: An error was detected in the input.
+        '''
         for token in self.tokens:
             if (not self.in_false_ifdef or
                     (isinstance(token, IfDef) and token.is_endif)):
