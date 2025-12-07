@@ -196,6 +196,47 @@ class VarDeclare(Directive):
 
 
 @dataclass
+class AutoDeclare(Directive):
+    '''A directive to enable automatic variable declaration.
+
+        #autodeclare
+    '''
+    src_filename: None | str = None
+    src_filelineno: None | str = None
+
+    @classmethod
+    def parse_line(cls, line, filename='<no file>', filelineno=0):
+        '''Parses a line as a variable declaration.
+
+        Args:
+            line: The line string.
+            filename: The name of the file being read (per fileinput).
+            filelineno: The number of the line of the file being read.
+
+        Returns:
+            A AutoDeclare object, or None if the line is not an
+            autodeclare directive.
+        '''
+        directive, rest = cls._parse_line(line)
+        if directive is None or directive != 'autodeclare':
+            return None
+        return AutoDeclare(src_filename=filename, src_filelineno=filelineno)
+
+    def handle(self, state, last_pass):
+        '''Enables automatic variable declaration in the state.
+
+        Args:
+            state: The TpnGenerator state.
+            last_pass: Whether this is the last pass.
+
+        Returns:
+            None.
+        '''
+        state.autodeclare = True
+        return None
+
+
+@dataclass
 class Define(Directive):
     '''A constant definition.
 
@@ -428,6 +469,10 @@ class Statement:
                 replacement = state.defines[sym]
             elif sym in state.labels:
                 replacement = str(state.labels[sym])
+            elif state.autodeclare:
+                short_name = state.make_var_short(sym)
+                state.vars[sym] = short_name
+                replacement = short_name
             else:
                 raise TpnError(f'Undeclared symbol: {sym}')
             parts.append(self.full_text[last_end:start])
@@ -597,6 +642,7 @@ class TpnGenerator:
         self.var_shorts = set()
         self.labels = dict()
         self.tokens = []
+        self.autodeclare = False
         self.reset_state()
 
     def reset_state(self):
@@ -694,7 +740,7 @@ class TpnGenerator:
             return
 
         token = None
-        for cls in (VarDeclare, Define, IfDef, Output, Line):
+        for cls in (VarDeclare, AutoDeclare, Define, IfDef, Output, Line):
             token = cls.parse_line(line_str, filename, filelineno)
             if token is not None:
                 break
