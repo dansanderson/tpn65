@@ -397,6 +397,21 @@ class TestTpnGenerator(unittest.TestCase):
         with self.assertRaises(TpnError):
             generator.output_basic()
 
+    def test_autodeclare(self):
+        generator = TpnGenerator()
+        generator.tokenize_line("#autodeclare")
+        generator.tokenize_line("a$ = \"hello\"")
+        generator.tokenize_line("print a$")
+        self.assertEqual(
+            generator.output_basic(),
+            "100 a$ = \"hello\"\n110 print a$")
+
+    def test_autodeclare_off(self):
+        generator = TpnGenerator()
+        generator.tokenize_line("a$ = \"hello\"")
+        with self.assertRaises(TpnError):
+            generator.output_basic()
+
     def test_undeclared_symbol_no_output(self):
         generator = TpnGenerator()
         generator.tokenize_line("#define FOO")
