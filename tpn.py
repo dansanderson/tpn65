@@ -11,6 +11,7 @@ Usage:
 from dataclasses import dataclass
 import fileinput
 import re
+import sys
 from typing import Optional
 
 
@@ -54,7 +55,14 @@ BASIC65_KEYWORDS = {
 
 class TpnError(Exception):
     '''There is an error in the user input.'''
-    pass
+    def __init__(self, message='', filename='<no file>', filelineno=0):
+        super().__init__(message)
+        self.message = message
+        self.filename = filename
+        self.filelineno = filelineno
+
+    def __str__(self):
+        return f'{self.filename}:{self.filelineno} {self.message}'
 
 
 class Directive:
@@ -89,13 +97,17 @@ class VarDeclare(Directive):
     name: str
     init_short: None | str = None
     array_dim_short: None | str = None
+    src_filename: None | str = None
+    src_filelineno: None | str = None
 
     @classmethod
-    def parse_line(cls, line):
+    def parse_line(cls, line, filename='<no file>', filelineno=0):
         '''Parses a line as a variable declaration.
 
         Args:
             line: The line string.
+            filename: The name of the file being read (per fileinput).
+            filelineno: The number of the line of the file being read.
 
         Returns:
             A VarDeclare object, or None if the line is not a variable
@@ -110,7 +122,9 @@ class VarDeclare(Directive):
 
         m = re.match(r'(\w+[$%]?)(.*)', rest)
         if m is None:
-            raise TpnError('#declare must be followed by a variable name')
+            raise TpnError(
+                '#declare must be followed by a variable name',
+                filename, filelineno)
         name = m.group(1)
         declare_rest = m.group(2).strip()
 
@@ -118,7 +132,8 @@ class VarDeclare(Directive):
             declare_init = declare_rest[1:].strip()
             if declare_init == '':
                 raise TpnError(
-                    '#declare initializer must be followed by an expression')
+                    '#declare initializer must be followed by an expression',
+                    filename, filelineno)
             return VarDeclare(name=name, init_short=declare_init)
 
         m = re.match(r'\((.*)\)$', declare_rest)
@@ -127,13 +142,19 @@ class VarDeclare(Directive):
             if dim == '':
                 raise TpnError(
                     '#declare array dimension must be followed by '
-                    'an expression')
+                    'an expression',
+                    filename, filelineno)
             return VarDeclare(name=name, array_dim_short=dim)
 
         if declare_rest != '':
-            raise TpnError('#declare must be on its own line')
+            raise TpnError(
+                '#declare must be on its own line',
+                filename, filelineno)
 
-        return VarDeclare(name=name)
+        return VarDeclare(
+            name=name,
+            src_filename=filename,
+            src_filelineno=filelineno)
 
     def handle(self, state, last_pass):
         '''Handles a variable declaration.
@@ -151,8 +172,15 @@ class VarDeclare(Directive):
         '''
         if not last_pass:
             if self.name in state.vars:
-                raise TpnError(f'Duplicate variable declaration: {self.name}')
-            short_name = state.make_var_short(self.name)
+                raise TpnError(
+                    f'Duplicate variable declaration: {self.name}',
+                    self.src_filename, self.src_filelineno)
+            try:
+                short_name = state.make_var_short(self.name)
+            except TpnError as e:
+                e.src_filename = self.src_filename
+                e.src_filelineno = self.src_filelineno
+                raise
             state.vars[self.name] = short_name
         if self.init_short is not None:
             return Line(
@@ -176,13 +204,17 @@ class Define(Directive):
     '''
     name: str
     value: None | str
+    src_filename: None | str = None
+    src_filelineno: None | str = None
 
     @classmethod
-    def parse_line(cls, line):
+    def parse_line(cls, line, filename='<no file>', filelineno=0):
         '''Parses a line as a constant definition.
 
         Args:
             line: The line string.
+            filename: The name of the file being read (per fileinput).
+            filelineno: The number of the line of the file being read.
 
         Returns:
             A Define object, or None if the line is not a constant definition.
@@ -196,15 +228,27 @@ class Define(Directive):
 
         m = re.match(r'(\w+)(.*)', rest)
         if m is None:
-            raise TpnError('#define must be followed by a symbol name')
+            raise TpnError(
+                '#define must be followed by a symbol name',
+                filename, filelineno)
         name = m.group(1)
         define_rest = m.group(2).strip()
         if define_rest == '':
-            return Define(name=name, value=None)
+            return Define(
+                name=name,
+                value=None,
+                src_filename=filename,
+                src_filelineno=filelineno)
         if not define_rest.startswith('='):
-            raise TpnError('#define must be followed by an expression')
+            raise TpnError(
+                '#define must be followed by an expression',
+                filename, filelineno)
         value = define_rest[1:].strip()
-        return Define(name=name, value=value)
+        return Define(
+            name=name,
+            value=value,
+            src_filename=filename,
+            src_filelineno=filelineno)
 
     def handle(self, state, last_pass):
         '''Handles a constant definition.
@@ -220,7 +264,9 @@ class Define(Directive):
             TpnError: Duplicate define symbol.
         '''
         if not last_pass and self.name in state.defines:
-            raise TpnError(f'Duplicate define: {self.name}')
+            raise TpnError(
+                f'Duplicate define: {self.name}',
+                self.src_filename, self.src_filelineno)
         state.defines[self.name] = self.value
         return None
 
@@ -234,13 +280,17 @@ class IfDef(Directive):
     '''
     def_name: None | str
     is_endif: bool
+    src_filename: None | str = None
+    src_filelineno: None | str = None
 
     @classmethod
-    def parse_line(cls, line):
+    def parse_line(cls, line, filename='<no file>', filelineno=0):
         '''Parses a line as an ifdef or endif directive.
 
         Args:
             line: The line string.
+            filename: The name of the file being read (per fileinput).
+            filelineno: The number of the line of the file being read.
 
         Returns:
             An IfDef object, or None if the line is not an ifdef or endif.
@@ -255,12 +305,24 @@ class IfDef(Directive):
 
         if directive == 'ifdef':
             if rest == '':
-                raise TpnError('#ifdef must be followed by a symbol')
-            return IfDef(def_name=rest, is_endif=False)
+                raise TpnError(
+                    '#ifdef must be followed by a symbol',
+                    filename, filelineno)
+            return IfDef(
+                def_name=rest,
+                is_endif=False,
+                src_filename=filename,
+                src_filelineno=filelineno)
 
         if rest != '':
-            raise TpnError('#endif must be on its own line')
-        return IfDef(def_name=None, is_endif=True)
+            raise TpnError(
+                '#endif must be on its own line',
+                filename, filelineno)
+        return IfDef(
+            def_name=None,
+            is_endif=True,
+            src_filename=filename,
+            src_filelineno=filelineno)
 
     def handle(self, state, last_pass):
         '''Handles an ifdef or endif directive.
@@ -288,11 +350,13 @@ class Output(Directive):
     Output directives are ignored, so no syntax checking is done.
     '''
     @classmethod
-    def parse_line(cls, line):
+    def parse_line(cls, line, filename='<no file>', filelineno=0):
         '''Parses a line as an output directive.
 
         Args:
             line: The line string.
+            filename: The name of the file being read (per fileinput).
+            filelineno: The number of the line of the file being read.
 
         Returns:
             An Output object, or None if the line is not an output directive.
@@ -400,13 +464,17 @@ class Line:
     statement: Optional[Statement] = None
     comment: Optional[str] = None
     label: Optional[str] = None
+    src_filename: None | str = None
+    src_filelineno: None | str = None
 
     @classmethod
-    def parse_line(cls, line):
+    def parse_line(cls, line, filename='<no file>', filelineno=0):
         '''Parses a line as a source line.
 
         Args:
             line: The line string.
+            filename: The name of the file being read (per fileinput).
+            filelineno: The number of the line of the file being read.
 
         Returns:
             A Line object, or None if the line is not a source line.
@@ -447,7 +515,9 @@ class Line:
             line_number=line_num,
             statement=statement,
             comment=comment,
-            label=label)
+            label=label,
+            src_filename=filename,
+            src_filelineno=filelineno)
 
     def handle(self, state, last_pass):
         '''Handles a source line.
@@ -465,7 +535,9 @@ class Line:
 
         if self.label is not None:
             if not last_pass and self.label in state.labels:
-                raise TpnError(f'Duplicate label: {self.label}')
+                raise TpnError(
+                    f'Duplicate label: {self.label}',
+                    self.src_filename, self.src_filelineno)
             state.labels[self.label] = state.cur_line
 
         if self.statement.full_text.strip() == '' and self.comment is None:
@@ -487,7 +559,12 @@ class Line:
         if self.line_number is not None:
             parts.append(str(self.line_number))
 
-        statement_str = self.statement.to_basic(state)
+        try:
+            statement_str = self.statement.to_basic(state)
+        except TpnError as e:
+            e.src_filename = self.src_filename
+            e.src_filelineno = self.src_filelineno
+            raise
         if statement_str:
             parts.append(statement_str)
 
@@ -601,11 +678,13 @@ class TpnGenerator:
         self.var_shorts.add(short_name + suffix)
         return short_name + suffix
 
-    def tokenize_line(self, line_str):
+    def tokenize_line(self, line_str, filename='<no file>', filelineno=0):
         '''Tokenizes a line of input source, and stores it in the state.
 
         Args:
             line_str: The line string.
+            filename: The name of the file being read (per fileinput).
+            filelineno: The number of the line of the file being read.
 
         Raises:
             TpnError: Syntax error for a source line.
@@ -616,7 +695,7 @@ class TpnGenerator:
 
         token = None
         for cls in (VarDeclare, Define, IfDef, Output, Line):
-            token = cls.parse_line(line_str)
+            token = cls.parse_line(line_str, filename, filelineno)
             if token is not None:
                 break
 
@@ -652,8 +731,16 @@ class TpnGenerator:
 
 def main():
     tpn_generator = TpnGenerator()
-    for line in fileinput.input():
-        tpn_generator.tokenize_line(line)
+    with fileinput.input() as fi:
+        for line in fi:
+            try:
+                tpn_generator.tokenize_line(
+                    line,
+                    fi.filename(),
+                    fi.filelineno())
+            except TpnError as e:
+                sys.stderr.write(str(e) + '\n')
+
     print(tpn_generator.output_basic())
 
 

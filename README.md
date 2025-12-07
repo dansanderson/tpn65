@@ -109,3 +109,5 @@ An `#import` statement would be more useful than the concatenation examples abov
 Add a command-line option to select the target BASIC dialect, so as to reserve the matching keyword set. (TPN already works with other BASIC dialects, such as C64 BASIC 2.0, if you don't mind the BASIC 65 keywords being reserved unnecessarily.)
 
 Nicer error formatting. Line numbers in error messages.
+
+`#autodeclare` directive to declare variables automatically on first use. This dispenses with typo checking in favor of more flexible variable use available in many languages.

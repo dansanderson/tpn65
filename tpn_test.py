@@ -1,6 +1,6 @@
 import io
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from tpn import Statement, TpnGenerator, Line, VarDeclare, TpnError, Define
 from tpn import IfDef, Output, main
 
@@ -414,9 +414,19 @@ class TestTpnGenerator(unittest.TestCase):
 
 
 class TestMain(unittest.TestCase):
-    @patch('fileinput.input', return_value=['print "hello"'])
+    @patch('fileinput.input')
     @patch('sys.stdout', new_callable=io.StringIO)
-    def test_main(self, mock_stdout, mock_stdin):
+    def test_main(self, mock_stdout, mock_fileinput_input):
+        mock_fi = MagicMock()
+        mock_fi.filename.return_value = '<stdin>'
+        mock_fi.filelineno.return_value = 1
+        mock_fi.__iter__.return_value = ['print "hello"']
+
+        mock_cm = MagicMock()
+        mock_cm.__enter__.return_value = mock_fi
+        mock_cm.__exit__.return_value = None
+        mock_fileinput_input.return_value = mock_cm
+
         main()
         self.assertEqual(mock_stdout.getvalue(), '100 print "hello"\n')
 
