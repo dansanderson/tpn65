@@ -178,8 +178,8 @@ class VarDeclare(Directive):
             try:
                 short_name = state.make_var_short(self.name)
             except TpnError as e:
-                e.src_filename = self.src_filename
-                e.src_filelineno = self.src_filelineno
+                e.filename = self.src_filename
+                e.filelineno = self.src_filelineno
                 raise
             state.vars[self.name] = short_name
         if self.init_short is not None:
@@ -562,8 +562,8 @@ class Line:
         try:
             statement_str = self.statement.to_basic(state)
         except TpnError as e:
-            e.src_filename = self.src_filename
-            e.src_filelineno = self.src_filelineno
+            e.filename = self.src_filename
+            e.filelineno = self.src_filelineno
             raise
         if statement_str:
             parts.append(statement_str)
@@ -730,18 +730,20 @@ class TpnGenerator:
 
 
 def main():
-    tpn_generator = TpnGenerator()
-    with fileinput.input() as fi:
-        for line in fi:
-            try:
+    try:
+        tpn_generator = TpnGenerator()
+        with fileinput.input() as fi:
+            for line in fi:
                 tpn_generator.tokenize_line(
                     line,
                     fi.filename(),
                     fi.filelineno())
-            except TpnError as e:
-                sys.stderr.write(str(e) + '\n')
 
-    print(tpn_generator.output_basic())
+        print(tpn_generator.output_basic())
+
+    except TpnError as e:
+        sys.stderr.write(str(e) + '\n')
+        sys.exit(1)
 
 
 if __name__ == "__main__":
